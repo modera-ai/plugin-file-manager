@@ -1,0 +1,22 @@
+{
+  "apiVersion": 1,
+  "id": "modera.file-manager",
+  "name": "File Manager",
+  "version": "0.3.0",
+  "description": "Browse and edit project files in a hierarchical side panel.",
+  "author": "Modera",
+  "category": "files",
+  "icon": "folder",
+  "main": "dist/index.cjs",
+  "permissions": ["workspace.read", "workspace.write", "process.spawn"],
+  "extensions": ["panel"],
+  "frontends": {
+    "manager": { "root": "dist/ui", "entry": "index.html" }
+  },
+  "locales": {
+    "zh-CN": {
+      "name": "文件管理器",
+      "description": "在层级侧边栏中浏览、预览和编辑项目文件。"
+    }
+  }
+}
