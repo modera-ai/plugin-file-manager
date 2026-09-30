@@ -32,18 +32,13 @@ import {
   ChevronRight,
   Code2,
   Copy,
-  Database,
   ExternalLink,
   File,
   FileCode2,
-  FileCog,
-  FileJson,
   FileText,
   Folder,
   FolderOpen,
-  Image,
   MoreHorizontal,
-  Package,
   Pencil,
   PanelLeftClose,
   PanelLeftOpen,
@@ -53,11 +48,11 @@ import {
   RefreshCw,
   Save,
   Search,
-  TerminalSquare,
   Trash2,
   X,
 } from "lucide-react";
 import { frontend, usePluginSnapshot } from "@modera/plugin-sdk/react";
+import { FileTypeIcon } from "@modera/ui/files";
 
 type Entry = {
   name: string;
@@ -159,59 +154,7 @@ const formatSize = (size = 0) =>
       : `${(size / 1024 ** 2).toFixed(1)} MiB`;
 
 function TypeIcon({ entry, open = false }: { entry: Entry; open?: boolean }) {
-  if (entry.kind === "directory")
-    return open ? (
-      <FolderOpen className="folder-icon" />
-    ) : (
-      <Folder className="folder-icon" />
-    );
-  const ext = entry.extension || "";
-  const name = entry.name.toLowerCase();
-  if (["dockerfile", ".gitignore", ".ignore", ".gitattributes"].includes(name))
-    return <FileCog className="config-icon" />;
-  if (
-    ["png", "jpg", "jpeg", "gif", "webp", "svg", "ico"].includes(ext.slice(1))
-  )
-    return <Image className="image-icon" />;
-  if (["md", "markdown", "txt", "log"].includes(ext.slice(1)))
-    return <FileText className="text-icon" />;
-  if (["json", "jsonc", "json5"].includes(ext.slice(1)))
-    return <FileJson className="json-icon" />;
-  if (["sql", "sqlite", "db"].includes(ext.slice(1)))
-    return <Database className="database-icon" />;
-  if (["sh", "bash", "zsh", "fish", "ps1", "psm1"].includes(ext.slice(1)))
-    return <TerminalSquare className="shell-icon" />;
-  if (["yaml", "yml", "toml", "ini", "properties"].includes(ext.slice(1)))
-    return <FileCog className="config-icon" />;
-  if (["lock", "zip", "tar", "gz", "7z"].includes(ext.slice(1)))
-    return <Package className="package-icon" />;
-  if (
-    [
-      "js",
-      "jsx",
-      "ts",
-      "tsx",
-      "css",
-      "html",
-      "py",
-      "rs",
-      "go",
-      "java",
-      "c",
-      "cpp",
-      "h",
-      "hpp",
-      "cs",
-      "php",
-      "rb",
-      "lua",
-      "xml",
-      "diff",
-      "patch",
-    ].includes(ext.slice(1))
-  )
-    return <FileCode2 className="code-icon" />;
-  return <File />;
+  return <FileTypeIcon path={entry.path || entry.name} kind={entry.kind} open={open} />;
 }
 
 function Editor({

@@ -17,6 +17,7 @@
     "@types/react-dom": "^19.1.9"
   },
   "dependencies": {
+    "@modera/ui": "file:../../../modera-ui",
     "@codemirror/lang-css": "^6.3.1",
     "@codemirror/lang-html": "^6.4.12",
     "@codemirror/lang-cpp": "^6.0.3",
