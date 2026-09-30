@@ -460,7 +460,7 @@ function App() {
                 )
               ) : null}
             </button>
-            <Tooltip content={entry.path}><button
+            <button
               className="tree-main"
               onClick={() =>
                 entry.kind === "directory" ? toggle(entry) : openFile(entry)
@@ -469,7 +469,7 @@ function App() {
             >
               <TypeIcon entry={entry} open={open} />
               <span>{entry.name}</span>
-            </button></Tooltip>
+            </button>
             <Tooltip content={zh ? "更多" : "More"}><button
               className="row-menu"
               onClick={(event) => showMenu(event, entry)}
@@ -510,7 +510,7 @@ function App() {
           } as React.CSSProperties
         }
       >
-        <Tooltip content={zh ? "按住并拖动到左侧或右侧" : "Hold and drag left or right"}><header
+        <header
           className="tree-titlebar"
           onPointerDown={beginTreeDrag}
 
@@ -529,7 +529,7 @@ function App() {
           >
             <Plus />
           </button></Tooltip>
-        </header></Tooltip>
+        </header>
         <form
           className="search-box"
           onSubmit={(event) => {
@@ -572,7 +572,7 @@ function App() {
                   : ""}
               </small>
               {searchResult.entries.map((entry) => (
-                <Tooltip key={entry.path} content={entry.path}><button
+                <button key={entry.path}
 
                   onClick={() => openFile(entry)}
 
@@ -582,7 +582,7 @@ function App() {
                     <strong>{entry.name}</strong>
                     <small>{parentOf(entry.path) || "/"}</small>
                   </span>
-                </button></Tooltip>
+                </button>
               ))}
             </div>
           ) : (
