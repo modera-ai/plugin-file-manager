@@ -1,3 +1,4 @@
+import { Tooltip } from "@modera/ui";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { basicSetup } from "codemirror";
@@ -459,23 +460,23 @@ function App() {
                 )
               ) : null}
             </button>
-            <button
+            <Tooltip content={entry.path}><button
               className="tree-main"
               onClick={() =>
                 entry.kind === "directory" ? toggle(entry) : openFile(entry)
               }
-              title={entry.path}
+
             >
               <TypeIcon entry={entry} open={open} />
               <span>{entry.name}</span>
-            </button>
-            <button
+            </button></Tooltip>
+            <Tooltip content={zh ? "更多" : "More"}><button
               className="row-menu"
               onClick={(event) => showMenu(event, entry)}
-              title={zh ? "更多" : "More"}
+
             >
               <MoreHorizontal />
-            </button>
+            </button></Tooltip>
           </div>
           {entry.kind === "directory" && open && nodes(entry.path, depth + 1)}
         </div>
@@ -509,26 +510,26 @@ function App() {
           } as React.CSSProperties
         }
       >
-        <header
+        <Tooltip content={zh ? "按住并拖动到左侧或右侧" : "Hold and drag left or right"}><header
           className="tree-titlebar"
           onPointerDown={beginTreeDrag}
-          title={zh ? "按住并拖动到左侧或右侧" : "Hold and drag left or right"}
+
         >
           <FolderOpen />
           <strong>{data?.rootName || (zh ? "项目" : "Project")}</strong>
-          <button
+          <Tooltip content={zh ? "刷新" : "Refresh"}><button
             onClick={() => run("list", { path: "" })}
-            title={zh ? "刷新" : "Refresh"}
+
           >
             <RefreshCw />
-          </button>
-          <button
+          </button></Tooltip>
+          <Tooltip content={zh ? "新建文件" : "New file"}><button
             onClick={() => create("", "file")}
-            title={zh ? "新建文件" : "New file"}
+
           >
             <Plus />
-          </button>
-        </header>
+          </button></Tooltip>
+        </header></Tooltip>
         <form
           className="search-box"
           onSubmit={(event) => {
@@ -547,16 +548,16 @@ function App() {
             maxLength={200}
           />
           {query && (
-            <button
+            <Tooltip content={zh ? "清除" : "Clear"}><button
               type="button"
               onClick={() => {
                 setQuery("");
                 setSearchResult(undefined);
               }}
-              title={zh ? "清除" : "Clear"}
+
             >
               <X />
-            </button>
+            </button></Tooltip>
           )}
         </form>
         <div className="tree" onContextMenu={(event) => showMenu(event)}>
@@ -571,17 +572,17 @@ function App() {
                   : ""}
               </small>
               {searchResult.entries.map((entry) => (
-                <button
-                  key={entry.path}
+                <Tooltip key={entry.path} content={entry.path}><button
+
                   onClick={() => openFile(entry)}
-                  title={entry.path}
+
                 >
                   <TypeIcon entry={entry} />
                   <span>
                     <strong>{entry.name}</strong>
                     <small>{parentOf(entry.path) || "/"}</small>
                   </span>
-                </button>
+                </button></Tooltip>
               ))}
             </div>
           ) : (
@@ -628,9 +629,9 @@ function App() {
         <nav>
           {!file?.external && (
             <>
-              <button
+              <Tooltip content={zh ? "切换目录树" : "Toggle tree"}><button
                 onClick={() => setCollapsed(!collapsed)}
-                title={zh ? "切换目录树" : "Toggle tree"}
+
               >
                 {collapsed ? (
                   treeSide === "left" ? (
@@ -643,7 +644,7 @@ function App() {
                 ) : (
                   <PanelRightClose />
                 )}
-              </button>
+              </button></Tooltip>
             </>
           )}
           <div className="file-title">
