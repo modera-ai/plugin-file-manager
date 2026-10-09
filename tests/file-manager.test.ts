@@ -160,3 +160,15 @@ describe("file manager panel", () => {
     ).rejects.toThrow("只读预览");
   });
 });
+
+it("previews image bytes in the file panel and prevents text overwrites", async () => {
+  const root = await mkdtemp(join(tmpdir(), "modera-file-image-"));
+  const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aMZkAAAAASUVORK5CYII=", "base64");
+  await writeFile(join(root, "picture.png"), png);
+  const { ui, ctx, request } = await panel(root);
+  await ui.act!({ id: "read", value: JSON.stringify({ path: "picture.png" }) }, ctx, request);
+  const opened = (await ui.render(request, ctx)).data as { result: { imageSource: string; version: string } };
+  expect(opened.result.imageSource).toBe(`data:image/png;base64,${png.toString("base64")}`);
+  await expect(ui.act!({ id: "save", value: JSON.stringify({ path: "picture.png", content: "oops", version: opened.result.version }) }, ctx, request)).rejects.toThrow("图片仅支持预览");
+  expect(await readFile(join(root, "picture.png"))).toEqual(png);
+});

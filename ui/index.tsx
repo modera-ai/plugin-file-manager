@@ -68,6 +68,7 @@ type FileData = {
   version: string;
   size: number;
   external?: boolean;
+  imageSource?: string;
 };
 type Result =
   | { type: "listing"; path: string; entries: Entry[] }
@@ -750,7 +751,7 @@ function App() {
           )}
           <button
             className="save"
-            disabled={!dirty || busy || file?.external}
+            disabled={!dirty || busy || file?.external || !!file?.imageSource}
             onClick={() =>
               file &&
               run("save", { path: file.path, content, version: file.version })
@@ -777,6 +778,8 @@ function App() {
                   : "Syntax highlighting and Markdown preview are ready"}
               </p>
             </div>
+          ) : file.imageSource ? (
+            <figure className="file-image-preview"><img src={file.imageSource} alt={file.path.split(/[\\/]/).at(-1)} /><figcaption>{file.path.split(/[\\/]/).at(-1)} · {formatSize(file.size)}</figcaption></figure>
           ) : preview && isMarkdown(file.path) ? (
             <article className="markdown">
               <ReactMarkdown remarkPlugins={[remarkGfm]}>

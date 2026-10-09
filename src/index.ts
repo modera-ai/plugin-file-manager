@@ -144,6 +144,7 @@ type Result =
       version: string;
       size: number;
       external?: boolean;
+      imageSource?: string;
     }
   | {
       type: "changed";
@@ -314,9 +315,16 @@ async function readTarget(
   external = false,
 ): Promise<Result> {
   const info = await stat(target);
-  if (!info.isFile() || info.size > MAX_TEXT_BYTES)
-    throw new Error("只支持 2 MiB 以内的文本文件");
+  const image = /\.(png|jpe?g|webp|gif|bmp)$/i.test(displayPath);
+  if (!info.isFile() || info.size > (image ? 25 * 1024 * 1024 : MAX_TEXT_BYTES))
+    throw new Error(image ? "图片超过 25 MiB" : "只支持 2 MiB 以内的文本文件");
   const bytes = await readFile(target);
+  if (image) {
+    const ext = extname(displayPath).slice(1).toLowerCase();
+    const mime = ext === "jpg" || ext === "jpeg" ? "image/jpeg" : `image/${ext}`;
+    return { type: "file", path: displayPath, content: "", version: `${info.mtimeMs}:${info.size}`, size: info.size,
+      imageSource: `data:${mime};base64,${bytes.toString("base64")}`, ...(external ? { external: true } : {}) };
+  }
   if (bytes.includes(0)) throw new Error("二进制文件暂不支持编辑");
   return {
     type: "file",
@@ -424,6 +432,7 @@ export const activate: PluginModule["activate"] = async () => ({
         else if (action.id === "read") result = await read(root, input.path);
         else if (action.id === "save") {
           const { rel, target } = await existing(root, input.path);
+          if (/\.(png|jpe?g|webp|gif|bmp)$/i.test(rel)) throw new Error("图片仅支持预览");
           const content = text(input.content, "content", true);
           if (Buffer.byteLength(content) > MAX_TEXT_BYTES)
             throw new Error("文件超过 2 MiB");
