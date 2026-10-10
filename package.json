@@ -14,17 +14,16 @@
     "release": "modera-plugin release . --publish"
   },
   "devDependencies": {
+    "@modera/contracts": "file:vendor/modera-contracts-0.1.0.tgz",
     "@modera/plugin-build": "file:vendor/modera-plugin-build-0.1.0.tgz",
     "@modera/plugin-sdk": "file:vendor/modera-plugin-sdk-0.1.0.tgz",
-    "@types/react-dom": "^19.1.9",
-    "@modera/contracts": "file:vendor/modera-contracts-0.1.0.tgz"
+    "@types/react-dom": "^19.1.9"
   },
   "dependencies": {
-    "@modera/ui": "file:vendor/modera-ui-0.1.0.tgz",
-    "@codemirror/lang-css": "^6.3.1",
-    "@codemirror/lang-html": "^6.4.12",
     "@codemirror/lang-cpp": "^6.0.3",
+    "@codemirror/lang-css": "^6.3.1",
     "@codemirror/lang-go": "^6.0.1",
+    "@codemirror/lang-html": "^6.4.12",
     "@codemirror/lang-java": "^6.0.2",
     "@codemirror/lang-javascript": "^6.2.5",
     "@codemirror/lang-json": "^6.0.2",
@@ -39,6 +38,7 @@
     "@codemirror/state": "^6.5.2",
     "@codemirror/theme-one-dark": "^6.1.3",
     "@codemirror/view": "^6.36.4",
+    "@modera/ui": "file:vendor/modera-ui-0.1.0.tgz",
     "codemirror": "^6.0.1",
     "ignore": "^7.0.5",
     "lucide-react": "^1.17.0",
