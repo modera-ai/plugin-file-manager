@@ -1,5 +1,6 @@
+import "@modera/ui/styles.css";
 import { FileActionsMenu } from "./FileActionsMenu";
-import { Menu, Tooltip, type MenuItem } from "@modera/ui";
+import { Menu, Tooltip, UiProvider, type MenuItem } from "@modera/ui";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { basicSetup } from "codemirror";
@@ -452,6 +453,7 @@ function App() {
       if (event.key === "Escape") setOpenMenu(false);
     };
     addEventListener("keydown", close);
+  }, [openMenu]);
     return () => removeEventListener("keydown", close);
   const fileMenuItems = (entry: Entry): MenuItem[] => {
     const base = entry.kind === "directory" ? entry.path : parentOf(entry.path);
@@ -488,7 +490,6 @@ function App() {
       },
     ];
   };
-  }, [openMenu]);
   const nodes = (path = "", depth = 0): React.ReactNode =>
     (tree[path] || []).map((entry) => {
       const open = expanded.has(entry.path),
@@ -966,4 +967,4 @@ function App() {
   );
 }
 
-createRoot(document.getElementById("root")!).render(<App />);
+createRoot(document.getElementById("root")!).render(<UiProvider style={{ height: "100%" }}><App /></UiProvider>);
