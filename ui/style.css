@@ -588,36 +588,6 @@ nav {
   box-shadow: 0 4px 18px #0003;
   font-size: 12px;
 }
-.menu-layer {
-  position: fixed;
-  inset: 0;
-  z-index: 20;
-}
-.context-menu {
-  position: fixed;
-  width: 180px;
-  padding: 5px;
-  border: 1px solid var(--border);
-  border-radius: 9px;
-  background: var(--bg);
-  box-shadow: 0 10px 34px #0004;
-}
-.context-menu button {
-  width: 100%;
-  height: 31px;
-  justify-content: flex-start;
-  gap: 8px;
-  padding: 0 9px;
-}
-.context-menu button.danger {
-  color: var(--danger);
-}
-.context-menu hr {
-  height: 1px;
-  margin: 4px;
-  border: 0;
-  background: var(--border);
-}
 .dialog-layer {
   position: fixed;
   inset: 0;

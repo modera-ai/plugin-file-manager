@@ -1,3 +1,4 @@
+import { FileActionsMenu } from "./FileActionsMenu";
 import { Tooltip } from "@modera/ui";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
@@ -95,7 +96,7 @@ type Data = {
   resourceFile?: FileData;
   openers?: { id: string; label: string }[];
 };
-type ContextMenu = { entry?: Entry; x: number; y: number };
+type ContextMenu = { entry?: Entry; x: number; y: number; anchor?: HTMLElement };
 type TreeDrag = {
   active: boolean;
   startX: number;
@@ -405,7 +406,7 @@ function App() {
   const showMenu = (event: React.MouseEvent, entry?: Entry) => {
     event.preventDefault();
     event.stopPropagation();
-    setContextMenu({ entry, x: event.clientX, y: event.clientY });
+    setContextMenu({ entry, x: event.clientX, y: event.clientY, anchor: event.type === "contextmenu" ? undefined : event.currentTarget as HTMLElement });
   };
   useEffect(() => {
     if (!modal) return;
@@ -797,86 +798,16 @@ function App() {
         )}
       </section>
       {contextMenu && (
-        <div
-          className="menu-layer"
-          onPointerDown={() => setContextMenu(undefined)}
-        >
-          <div
-            className="context-menu"
-            style={{
-              left: Math.min(contextMenu.x, innerWidth - 190),
-              top: Math.min(contextMenu.y, innerHeight - 230),
-            }}
-            onPointerDown={(event) => event.stopPropagation()}
-          >
-            <button
-              onClick={() => {
-                create(
-                  contextMenu.entry?.kind === "directory"
-                    ? contextMenu.entry.path
-                    : parentOf(contextMenu.entry?.path || ""),
-                  "file",
-                );
-                setContextMenu(undefined);
-              }}
-            >
-              <Plus />
-              {zh ? "新建文件" : "New file"}
-            </button>
-            <button
-              onClick={() => {
-                create(
-                  contextMenu.entry?.kind === "directory"
-                    ? contextMenu.entry.path
-                    : parentOf(contextMenu.entry?.path || ""),
-                  "directory",
-                );
-                setContextMenu(undefined);
-              }}
-            >
-              <Folder />
-              {zh ? "新建文件夹" : "New folder"}
-            </button>
-            {contextMenu.entry && (
-              <>
-                <hr />
-                <button
-                  onClick={() => {
-                    renameEntry(contextMenu.entry!);
-                    setContextMenu(undefined);
-                  }}
-                >
-                  <Pencil />
-                  {zh ? "重命名" : "Rename"}
-                </button>
-                <button
-                  className="danger"
-                  onClick={() => {
-                    deleteEntry(contextMenu.entry!);
-                    setContextMenu(undefined);
-                  }}
-                >
-                  <Trash2 />
-                  {zh ? "删除" : "Delete"}
-                </button>
-              </>
-            )}
-            <hr />
-            <button
-              onClick={() => {
-                const path =
-                  contextMenu.entry?.kind === "directory"
-                    ? contextMenu.entry.path
-                    : parentOf(contextMenu.entry?.path || "");
-                void run("list", { path });
-                setContextMenu(undefined);
-              }}
-            >
-              <RefreshCw />
-              {zh ? "刷新" : "Refresh"}
-            </button>
-          </div>
-        </div>
+        <FileActionsMenu
+          anchor={contextMenu.anchor ?? { x: contextMenu.x, y: contextMenu.y }}
+          zh={zh}
+          hasEntry={!!contextMenu.entry}
+          onClose={() => setContextMenu(undefined)}
+          onCreate={(kind) => create(contextMenu.entry?.kind === "directory" ? contextMenu.entry.path : parentOf(contextMenu.entry?.path || ""), kind)}
+          onRename={() => { if (contextMenu.entry) renameEntry(contextMenu.entry); }}
+          onDelete={() => { if (contextMenu.entry) deleteEntry(contextMenu.entry); }}
+          onRefresh={() => { void run("list", { path: contextMenu.entry?.kind === "directory" ? contextMenu.entry.path : parentOf(contextMenu.entry?.path || "") }); }}
+        />
       )}
       {modal && (
         <div className="dialog-layer" onPointerDown={closeModal}>
