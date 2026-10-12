@@ -331,15 +331,12 @@ svg {
 .tree-main svg {
   flex: none;
 }
-.row-menu {
-  width: 24px;
-  height: 24px;
-  padding: 4px;
-  opacity: 0;
-}
-.tree-row:hover .row-menu,
-.row-menu:focus {
-  opacity: 1;
+.tree-row-content {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+  padding-right: 34px;
 }
 .folder-icon {
   color: #d49a27;

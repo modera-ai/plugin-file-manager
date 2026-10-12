@@ -1,5 +1,5 @@
 import { FileActionsMenu } from "./FileActionsMenu";
-import { Tooltip } from "@modera/ui";
+import { Menu, Tooltip, type MenuItem } from "@modera/ui";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { basicSetup } from "codemirror";
@@ -96,7 +96,12 @@ type Data = {
   resourceFile?: FileData;
   openers?: { id: string; label: string }[];
 };
-type ContextMenu = { entry?: Entry; x: number; y: number; anchor?: HTMLElement };
+type ContextMenu = {
+  entry?: Entry;
+  x: number;
+  y: number;
+  anchor?: HTMLElement;
+};
 type TreeDrag = {
   active: boolean;
   startX: number;
@@ -157,7 +162,13 @@ const formatSize = (size = 0) =>
       : `${(size / 1024 ** 2).toFixed(1)} MiB`;
 
 function TypeIcon({ entry, open = false }: { entry: Entry; open?: boolean }) {
-  return <FileTypeIcon path={entry.path || entry.name} kind={entry.kind} open={open} />;
+  return (
+    <FileTypeIcon
+      path={entry.path || entry.name}
+      kind={entry.kind}
+      open={open}
+    />
+  );
 }
 
 function Editor({
@@ -406,7 +417,15 @@ function App() {
   const showMenu = (event: React.MouseEvent, entry?: Entry) => {
     event.preventDefault();
     event.stopPropagation();
-    setContextMenu({ entry, x: event.clientX, y: event.clientY, anchor: event.type === "contextmenu" ? undefined : event.currentTarget as HTMLElement });
+    setContextMenu({
+      entry,
+      x: event.clientX,
+      y: event.clientY,
+      anchor:
+        event.type === "contextmenu"
+          ? undefined
+          : (event.currentTarget as HTMLElement),
+    });
   };
   useEffect(() => {
     if (!modal) return;
@@ -434,52 +453,89 @@ function App() {
     };
     addEventListener("keydown", close);
     return () => removeEventListener("keydown", close);
+  const fileMenuItems = (entry: Entry): MenuItem[] => {
+    const base = entry.kind === "directory" ? entry.path : parentOf(entry.path);
+    return [
+      {
+        label: zh ? "新建文件" : "New file",
+        icon: Plus,
+        onSelect: () => create(base, "file"),
+      },
+      {
+        label: zh ? "新建文件夹" : "New folder",
+        icon: Folder,
+        onSelect: () => create(base, "directory"),
+      },
+      {
+        label: zh ? "重命名" : "Rename",
+        icon: Pencil,
+        separatorBefore: true,
+        onSelect: () => renameEntry(entry),
+      },
+      {
+        label: zh ? "删除" : "Delete",
+        icon: Trash2,
+        danger: true,
+        onSelect: () => deleteEntry(entry),
+      },
+      {
+        label: zh ? "刷新" : "Refresh",
+        icon: RefreshCw,
+        separatorBefore: true,
+        onSelect: () => {
+          void run("list", { path: base });
+        },
+      },
+    ];
+  };
   }, [openMenu]);
   const nodes = (path = "", depth = 0): React.ReactNode =>
     (tree[path] || []).map((entry) => {
       const open = expanded.has(entry.path),
         active = file?.path === entry.path;
       return (
-        <div key={entry.path}>
-          <div
+        <div
+          key={entry.path}
+          onContextMenu={(event) => event.stopPropagation()}
+        >
+          <Menu
             className={`tree-row${active ? " active" : ""}`}
-            style={{ paddingLeft: 8 + depth * 15 }}
-            onContextMenu={(event) => showMenu(event, entry)}
-            onDoubleClick={() =>
-              entry.kind === "directory" ? toggle(entry) : openFile(entry)
+            label={
+              zh ? `${entry.name} 的文件操作` : `Actions for ${entry.name}`
+            items={fileMenuItems(entry)}
             }
           >
-            <button
-              className="disclosure"
-              onClick={() => entry.kind === "directory" && toggle(entry)}
-              aria-label="toggle"
-            >
-              {entry.kind === "directory" ? (
-                open ? (
-                  <ChevronDown />
-                ) : (
-                  <ChevronRight />
-                )
-              ) : null}
-            </button>
-            <button
-              className="tree-main"
-              onClick={() =>
+            <div
+              className="tree-row-content"
+              style={{ paddingLeft: 8 + depth * 15 }}
+              onDoubleClick={() =>
                 entry.kind === "directory" ? toggle(entry) : openFile(entry)
               }
-
             >
-              <TypeIcon entry={entry} open={open} />
-              <span>{entry.name}</span>
-            </button>
-            <Tooltip content={zh ? "更多" : "More"}><button
-              className="row-menu"
-              onClick={(event) => showMenu(event, entry)}
-
-            >
-              <MoreHorizontal />
-            </button></Tooltip>
-          </div>
+              <button
+                className="disclosure"
+                onClick={() => entry.kind === "directory" && toggle(entry)}
+                aria-label="toggle"
+              >
+                {entry.kind === "directory" ? (
+                  open ? (
+                    <ChevronDown />
+                  ) : (
+                    <ChevronRight />
+                  )
+                ) : null}
+              </button>
+              <button
+                className="tree-main"
+                onClick={() =>
+                  entry.kind === "directory" ? toggle(entry) : openFile(entry)
+                }
+              >
+                <TypeIcon entry={entry} open={open} />
+                <span>{entry.name}</span>
+              </button>
+            </div>
+          </Menu>
           {entry.kind === "directory" && open && nodes(entry.path, depth + 1)}
         </div>
       );
@@ -512,25 +568,19 @@ function App() {
           } as React.CSSProperties
         }
       >
-        <header
-          className="tree-titlebar"
-          onPointerDown={beginTreeDrag}
-
-        >
+        <header className="tree-titlebar" onPointerDown={beginTreeDrag}>
           <FolderOpen />
           <strong>{data?.rootName || (zh ? "项目" : "Project")}</strong>
-          <Tooltip content={zh ? "刷新" : "Refresh"}><button
-            onClick={() => run("list", { path: "" })}
-
-          >
-            <RefreshCw />
-          </button></Tooltip>
-          <Tooltip content={zh ? "新建文件" : "New file"}><button
-            onClick={() => create("", "file")}
-
-          >
-            <Plus />
-          </button></Tooltip>
+          <Tooltip content={zh ? "刷新" : "Refresh"}>
+            <button onClick={() => run("list", { path: "" })}>
+              <RefreshCw />
+            </button>
+          </Tooltip>
+          <Tooltip content={zh ? "新建文件" : "New file"}>
+            <button onClick={() => create("", "file")}>
+              <Plus />
+            </button>
+          </Tooltip>
         </header>
         <form
           className="search-box"
@@ -550,16 +600,17 @@ function App() {
             maxLength={200}
           />
           {query && (
-            <Tooltip content={zh ? "清除" : "Clear"}><button
-              type="button"
-              onClick={() => {
-                setQuery("");
-                setSearchResult(undefined);
-              }}
-
-            >
-              <X />
-            </button></Tooltip>
+            <Tooltip content={zh ? "清除" : "Clear"}>
+              <button
+                type="button"
+                onClick={() => {
+                  setQuery("");
+                  setSearchResult(undefined);
+                }}
+              >
+                <X />
+              </button>
+            </Tooltip>
           )}
         </form>
         <div className="tree" onContextMenu={(event) => showMenu(event)}>
@@ -574,8 +625,8 @@ function App() {
                   : ""}
               </small>
               {searchResult.entries.map((entry) => (
-                <button key={entry.path}
-
+                <button
+                  key={entry.path}
                   onClick={() => openFile(entry)}
 
                 >
@@ -631,22 +682,21 @@ function App() {
         <nav>
           {!file?.external && (
             <>
-              <Tooltip content={zh ? "切换目录树" : "Toggle tree"}><button
-                onClick={() => setCollapsed(!collapsed)}
-
-              >
-                {collapsed ? (
-                  treeSide === "left" ? (
-                    <PanelLeftOpen />
+              <Tooltip content={zh ? "切换目录树" : "Toggle tree"}>
+                <button onClick={() => setCollapsed(!collapsed)}>
+                  {collapsed ? (
+                    treeSide === "left" ? (
+                      <PanelLeftOpen />
+                    ) : (
+                      <PanelRightOpen />
+                    )
+                  ) : treeSide === "left" ? (
+                    <PanelLeftClose />
                   ) : (
-                    <PanelRightOpen />
-                  )
-                ) : treeSide === "left" ? (
-                  <PanelLeftClose />
-                ) : (
-                  <PanelRightClose />
-                )}
-              </button></Tooltip>
+                    <PanelRightClose />
+                  )}
+                </button>
+              </Tooltip>
             </>
           )}
           <div className="file-title">
@@ -780,7 +830,15 @@ function App() {
               </p>
             </div>
           ) : file.imageSource ? (
-            <figure className="file-image-preview"><img src={file.imageSource} alt={file.path.split(/[\\/]/).at(-1)} /><figcaption>{file.path.split(/[\\/]/).at(-1)} · {formatSize(file.size)}</figcaption></figure>
+            <figure className="file-image-preview">
+              <img
+                src={file.imageSource}
+                alt={file.path.split(/[\\/]/).at(-1)}
+              />
+              <figcaption>
+                {file.path.split(/[\\/]/).at(-1)} · {formatSize(file.size)}
+              </figcaption>
+            </figure>
           ) : preview && isMarkdown(file.path) ? (
             <article className="markdown">
               <ReactMarkdown remarkPlugins={[remarkGfm]}>
@@ -803,10 +861,28 @@ function App() {
           zh={zh}
           hasEntry={!!contextMenu.entry}
           onClose={() => setContextMenu(undefined)}
-          onCreate={(kind) => create(contextMenu.entry?.kind === "directory" ? contextMenu.entry.path : parentOf(contextMenu.entry?.path || ""), kind)}
-          onRename={() => { if (contextMenu.entry) renameEntry(contextMenu.entry); }}
-          onDelete={() => { if (contextMenu.entry) deleteEntry(contextMenu.entry); }}
-          onRefresh={() => { void run("list", { path: contextMenu.entry?.kind === "directory" ? contextMenu.entry.path : parentOf(contextMenu.entry?.path || "") }); }}
+          onCreate={(kind) =>
+            create(
+              contextMenu.entry?.kind === "directory"
+                ? contextMenu.entry.path
+                : parentOf(contextMenu.entry?.path || ""),
+              kind,
+            )
+          }
+          onRename={() => {
+            if (contextMenu.entry) renameEntry(contextMenu.entry);
+          }}
+          onDelete={() => {
+            if (contextMenu.entry) deleteEntry(contextMenu.entry);
+          }}
+          onRefresh={() => {
+            void run("list", {
+              path:
+                contextMenu.entry?.kind === "directory"
+                  ? contextMenu.entry.path
+                  : parentOf(contextMenu.entry?.path || ""),
+            });
+          }}
         />
       )}
       {modal && (
