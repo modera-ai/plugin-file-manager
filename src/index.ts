@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { spawn } from "node:child_process";
+import { spawn } from "@modera/plugin-sdk/workspace-process";
 import {
   access,
   lstat,
@@ -12,16 +12,17 @@ import {
   stat,
   unlink,
   writeFile,
-} from "node:fs/promises";
+} from "@modera/plugin-sdk/workspace-fs";
 import {
   basename,
+  isRemotePath,
   dirname,
   extname,
   isAbsolute,
   join,
   relative,
   resolve,
-} from "node:path";
+} from "@modera/plugin-sdk/workspace-path";
 import type { PluginModule, ToolContext } from "@modera/plugin-sdk";
 import createIgnore, { type Ignore } from "ignore";
 
@@ -75,6 +76,7 @@ async function availableOpeners() {
   return found;
 }
 async function launchFile(target: string, opener: unknown) {
+  if (isRemotePath(target)) throw new Error("远程文件请在 Modera 中查看或编辑");
   const id = text(opener, "opener");
   let executable: string;
   let args: string[];
@@ -349,7 +351,7 @@ async function resourceFile(
     );
   }
   const target = await realpath(
-    isAbsolute(requested) ? requested : resolve(root, cleanRelative(requested)),
+    isRemotePath(root) ? resolve(root, requested) : isAbsolute(requested) ? requested : resolve(root, cleanRelative(requested)),
   );
   if (inside(root, target)) {
     const rel = relative(root, target).replace(/\\/g, "/");
@@ -495,7 +497,7 @@ export const activate: PluginModule["activate"] = async () => ({
             rootEntries: opened?.external ? [] : await list(root, ""),
             result,
             ...(opened ? { resourceFile: opened } : {}),
-            openers: (await availableOpeners()).map(({ id, label }) => ({
+            openers: (isRemotePath(root) ? [] : await availableOpeners()).map(({ id, label }) => ({
               id,
               label,
             })),
