@@ -1,6 +1,6 @@
 {
   "name": "@modera-plugin/file-manager",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "type": "module",
   "description": "Project file tree, editor and previews for the Modera side panel.",
   "files": [
