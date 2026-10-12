@@ -1,5 +1,9 @@
 import { MenuAction, MenuPanel, PopoverMorph } from "@modera/ui";
-import { Folder, Pencil, Plus, RefreshCw, Trash2 } from "lucide-react";
+import { FolderIcon as Folder } from "@phosphor-icons/react/dist/csr/Folder";
+import { PencilIcon as Pencil } from "@phosphor-icons/react/dist/csr/Pencil";
+import { PlusIcon as Plus } from "@phosphor-icons/react/dist/csr/Plus";
+import { ArrowsClockwiseIcon as RefreshCw } from "@phosphor-icons/react/dist/csr/ArrowsClockwise";
+import { TrashIcon as Trash2 } from "@phosphor-icons/react/dist/csr/Trash";
 
 export function FileActionsMenu({
   anchor,

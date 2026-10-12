@@ -30,30 +30,27 @@ import { csharp } from "@codemirror/legacy-modes/mode/clike";
 import { diff } from "@codemirror/legacy-modes/mode/diff";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import {
-  ChevronDown,
-  ChevronRight,
-  Code2,
-  Copy,
-  ExternalLink,
-  File,
-  FileCode2,
-  FileText,
-  Folder,
-  FolderOpen,
-  MoreHorizontal,
-  Pencil,
-  PanelLeftClose,
-  PanelLeftOpen,
-  PanelRightClose,
-  PanelRightOpen,
-  Plus,
-  RefreshCw,
-  Save,
-  Search,
-  Trash2,
-  X,
-} from "lucide-react";
+import { CaretDownIcon as ChevronDown } from "@phosphor-icons/react/dist/csr/CaretDown";
+import { CaretRightIcon as ChevronRight } from "@phosphor-icons/react/dist/csr/CaretRight";
+import { CodeIcon as Code2 } from "@phosphor-icons/react/dist/csr/Code";
+import { CopyIcon as Copy } from "@phosphor-icons/react/dist/csr/Copy";
+import { ArrowSquareOutIcon as ExternalLink } from "@phosphor-icons/react/dist/csr/ArrowSquareOut";
+import { FileIcon as File } from "@phosphor-icons/react/dist/csr/File";
+import { FileCodeIcon as FileCode2 } from "@phosphor-icons/react/dist/csr/FileCode";
+import { FileTextIcon as FileText } from "@phosphor-icons/react/dist/csr/FileText";
+import { FolderIcon as Folder } from "@phosphor-icons/react/dist/csr/Folder";
+import { FolderOpenIcon as FolderOpen } from "@phosphor-icons/react/dist/csr/FolderOpen";
+import { PencilIcon as Pencil } from "@phosphor-icons/react/dist/csr/Pencil";
+import { SidebarSimpleIcon as PanelLeftClose } from "@phosphor-icons/react/dist/csr/SidebarSimple";
+import { SidebarSimpleIcon as PanelLeftOpen } from "@phosphor-icons/react/dist/csr/SidebarSimple";
+import { SidebarSimpleIcon as PanelRightClose } from "@phosphor-icons/react/dist/csr/SidebarSimple";
+import { SidebarSimpleIcon as PanelRightOpen } from "@phosphor-icons/react/dist/csr/SidebarSimple";
+import { PlusIcon as Plus } from "@phosphor-icons/react/dist/csr/Plus";
+import { ArrowsClockwiseIcon as RefreshCw } from "@phosphor-icons/react/dist/csr/ArrowsClockwise";
+import { FloppyDiskIcon as Save } from "@phosphor-icons/react/dist/csr/FloppyDisk";
+import { MagnifyingGlassIcon as Search } from "@phosphor-icons/react/dist/csr/MagnifyingGlass";
+import { TrashIcon as Trash2 } from "@phosphor-icons/react/dist/csr/Trash";
+import { XIcon as X } from "@phosphor-icons/react/dist/csr/X";
 import { frontend, usePluginSnapshot } from "@modera/plugin-sdk/react";
 import { FileTypeIcon } from "@modera/ui/files";
 
@@ -504,8 +501,8 @@ function App() {
             className={`tree-row${active ? " active" : ""}`}
             label={
               zh ? `${entry.name} 的文件操作` : `Actions for ${entry.name}`
-            items={fileMenuItems(entry)}
             }
+            items={fileMenuItems(entry)}
           >
             <div
               className="tree-row-content"
