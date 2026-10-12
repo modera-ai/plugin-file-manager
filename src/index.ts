@@ -494,6 +494,7 @@ export const activate: PluginModule["activate"] = async () => ({
             : "File Manager",
           data: {
             rootName: basename(root),
+              canOpenExternally: !isRemotePath(opened?.external ? opened.path : root),
             rootEntries: opened?.external ? [] : await list(root, ""),
             result,
             ...(opened ? { resourceFile: opened } : {}),

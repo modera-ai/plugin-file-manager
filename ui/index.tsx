@@ -92,6 +92,7 @@ type Result =
     };
 type Data = {
   rootName: string;
+  canOpenExternally?: boolean;
   rootEntries: Entry[];
   result?: Result;
   resourceFile?: FileData;
@@ -729,6 +730,7 @@ function App() {
                     onClick={() => setOpenMenu(false)}
                   />
                   <div className="open-menu" role="menu">
+                    {data?.canOpenExternally !== false && <>
                     {(data?.openers || []).map((opener) => (
                       <button
                         key={opener.id}
@@ -769,6 +771,7 @@ function App() {
                       <FolderOpen />
                       {zh ? "打开所在文件夹" : "Show in folder"}
                     </button>
+                    </>}
                     <button
                       role="menuitem"
                       onClick={() => {
