@@ -51,6 +51,7 @@ import { FloppyDiskIcon as Save } from "@phosphor-icons/react/dist/csr/FloppyDis
 import { MagnifyingGlassIcon as Search } from "@phosphor-icons/react/dist/csr/MagnifyingGlass";
 import { TrashIcon as Trash2 } from "@phosphor-icons/react/dist/csr/Trash";
 import { XIcon as X } from "@phosphor-icons/react/dist/csr/X";
+
 import { frontend, usePluginSnapshot } from "@modera/plugin-sdk/react";
 import { FileTypeIcon } from "@modera/ui/files";
 
@@ -90,7 +91,7 @@ type Result =
 type Data = {
   rootName: string;
   canOpenExternally?: boolean;
-  rootEntries: Entry[];
+  rootEntries?: Entry[];
   result?: Result;
   resourceFile?: FileData;
   openers?: { id: string; label: string }[];
@@ -299,7 +300,8 @@ function App() {
     addEventListener("pointercancel", end, { once: true });
   };
   useEffect(() => {
-    if (data?.rootEntries) setTree((old) => ({ ...old, "": data.rootEntries }));
+    const entries = data?.rootEntries;
+    if (entries) setTree((old) => ({ ...old, "": entries }));
   }, [data?.rootEntries]);
   useEffect(() => {
     if (!data?.resourceFile) return;
@@ -451,8 +453,8 @@ function App() {
       if (event.key === "Escape") setOpenMenu(false);
     };
     addEventListener("keydown", close);
-  }, [openMenu]);
     return () => removeEventListener("keydown", close);
+  }, [openMenu]);
   const fileMenuItems = (entry: Entry): MenuItem[] => {
     const base = entry.kind === "directory" ? entry.path : parentOf(entry.path);
     return [
@@ -626,8 +628,8 @@ function App() {
               {searchResult.entries.map((entry) => (
                 <button
                   key={entry.path}
-                  onClick={() => openFile(entry)}
 
+                  onClick={() => openFile(entry)}
                 >
                   <TypeIcon entry={entry} />
                   <span>

@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { spawn } from "@modera/plugin-sdk/workspace-process";
+import { remoteTransport } from "@modera/plugin-sdk/workspace-transport";
 import {
   access,
   lstat,
@@ -23,7 +24,7 @@ import {
   relative,
   resolve,
 } from "@modera/plugin-sdk/workspace-path";
-import type { PluginModule, ToolContext } from "@modera/plugin-sdk";
+import type { PluginModule, PluginUiRequest, ToolContext } from "@modera/plugin-sdk";
 import createIgnore, { type Ignore } from "ignore";
 
 const MAX_TEXT_BYTES = 2 * 1024 * 1024;
@@ -157,11 +158,14 @@ type Result =
       version?: string;
     };
 
-const outputs = new Map<string, Result>();
+type ActionOutput = { root: string; result: Result };
 async function ignoreRules(root: string): Promise<Ignore> {
   const rules = createIgnore();
-  for (const name of [".gitignore", ".ignore"]) {
-    const content = await readFile(join(root, name), "utf8").catch(() => "");
+  for (const content of await Promise.all(
+    [".gitignore", ".ignore"].map((name) =>
+      readFile(join(root, name), "utf8").catch(() => ""),
+    ),
+  )) {
     if (content) rules.add(content);
   }
   return rules;
@@ -207,7 +211,7 @@ const inside = (root: string, target: string, allowRoot = false) => {
 };
 async function existing(root: string, value: unknown, allowRoot = false) {
   const rel = cleanRelative(value);
-  const target = await realpath(resolve(root, rel));
+  const target = !rel && allowRoot ? root : await realpath(resolve(root, rel));
   if (!inside(root, target, allowRoot))
     throw new Error("路径超出项目范围或指向符号链接");
   return { rel, target };
@@ -221,9 +225,13 @@ async function destination(root: string, value: unknown) {
   return { rel, target };
 }
 async function list(root: string, value: unknown): Promise<Entry[]> {
-  const { rel, target } = await existing(root, value, true);
-  const rules = await ignoreRules(root);
-  const items = await readdir(target, { withFileTypes: true });
+  const [{ rel, target, items }, rules] = await Promise.all([
+    existing(root, value, true).then(async (resolved) => ({
+      ...resolved,
+      items: await readdir(resolved.target, { withFileTypes: true }),
+    })),
+    ignoreRules(root),
+  ]);
   if (items.length > MAX_ENTRIES)
     throw new Error(`目录项目超过 ${MAX_ENTRIES} 项`);
   const entries = await Promise.all(
@@ -240,12 +248,16 @@ async function list(root: string, value: unknown): Promise<Entry[]> {
         const path = rel ? `${rel}/${item.name}` : item.name;
         if (item.isDirectory())
           return { name: item.name, path, kind: "directory" as const };
-        const info = await stat(join(target, item.name));
+        const listedSize = (item as typeof item & { size?: number }).size;
+        const size =
+          isRemotePath(root) && typeof listedSize === "number"
+            ? listedSize
+            : (await stat(join(target, item.name))).size;
         return {
           name: item.name,
           path,
           kind: "file" as const,
-          size: info.size,
+          size,
           extension: extname(item.name).toLowerCase(),
         };
       }),
@@ -287,12 +299,16 @@ async function search(root: string, value: unknown): Promise<Result> {
       if (item.isDirectory())
         queue.push({ path, target: join(current.target, item.name) });
       else if (item.name.toLocaleLowerCase().includes(needle)) {
-        const info = await stat(join(current.target, item.name));
+        const listedSize = (item as typeof item & { size?: number }).size;
+        const size =
+          isRemotePath(root) && typeof listedSize === "number"
+            ? listedSize
+            : (await stat(join(current.target, item.name))).size;
         entries.push({
           name: item.name,
           path,
           kind: "file",
-          size: info.size,
+          size,
           extension: extname(item.name).toLowerCase(),
         });
         if (entries.length >= MAX_RESULTS) break;
@@ -320,19 +336,41 @@ async function readTarget(
   const image = /\.(png|jpe?g|webp|gif|bmp)$/i.test(displayPath);
   if (!info.isFile() || info.size > (image ? 25 * 1024 * 1024 : MAX_TEXT_BYTES))
     throw new Error(image ? "图片超过 25 MiB" : "只支持 2 MiB 以内的文本文件");
-  const bytes = await readFile(target);
+  const remote =
+    isRemotePath(target) && !image
+      ? ((await remoteTransport().file("readVersion", [
+          target,
+          { maxBytes: MAX_TEXT_BYTES },
+        ])) as {
+          content: Buffer | null;
+          version: { exists: boolean; size: number };
+        })
+      : undefined;
+  if (remote && !remote.content) throw new Error("文件已不存在，请重新打开");
+  const bytes = remote?.content ?? (await readFile(target));
+  const version = remote
+    ? JSON.stringify(remote.version)
+    : `${info.mtimeMs}:${info.size}`;
   if (image) {
     const ext = extname(displayPath).slice(1).toLowerCase();
-    const mime = ext === "jpg" || ext === "jpeg" ? "image/jpeg" : `image/${ext}`;
-    return { type: "file", path: displayPath, content: "", version: `${info.mtimeMs}:${info.size}`, size: info.size,
-      imageSource: `data:${mime};base64,${bytes.toString("base64")}`, ...(external ? { external: true } : {}) };
+    const mime =
+      ext === "jpg" || ext === "jpeg" ? "image/jpeg" : `image/${ext}`;
+    return {
+      type: "file",
+      path: displayPath,
+      content: "",
+      version: `${info.mtimeMs}:${info.size}`,
+      size: info.size,
+      imageSource: `data:${mime};base64,${bytes.toString("base64")}`,
+      ...(external ? { external: true } : {}),
+    };
   }
   if (bytes.includes(0)) throw new Error("二进制文件暂不支持编辑");
   return {
     type: "file",
     path: displayPath,
     content: bytes.toString("utf8"),
-    version: `${info.mtimeMs}:${info.size}`,
+    version,
     size: info.size,
     ...(external ? { external: true } : {}),
   };
@@ -341,6 +379,16 @@ async function resourceFile(
   root: string,
   resource?: string,
 ): Promise<Extract<Result, { type: "file" }> | undefined> {
+  const resolved = await resourceTarget(root, resource);
+  return resolved
+    ? ((await readTarget(
+        resolved.target,
+        resolved.path,
+        resolved.external,
+      )) as Extract<Result, { type: "file" }>)
+    : undefined;
+}
+async function resourceTarget(root: string, resource?: string) {
   if (!resource) return undefined;
   let requested = text(parse(resource).path, "path");
   if (requested.startsWith("file://")) {
@@ -351,11 +399,15 @@ async function resourceFile(
     );
   }
   const target = await realpath(
-    isRemotePath(root) ? resolve(root, requested) : isAbsolute(requested) ? requested : resolve(root, cleanRelative(requested)),
+    isRemotePath(root)
+      ? resolve(root, requested)
+      : isAbsolute(requested)
+        ? requested
+        : resolve(root, cleanRelative(requested)),
   );
   if (inside(root, target)) {
     const rel = relative(root, target).replace(/\\/g, "/");
-    return (await readTarget(target, rel)) as Extract<Result, { type: "file" }>;
+    return { target, path: rel, external: false };
   }
   const parts = target.toLowerCase().split(/[\\/]/);
   if (
@@ -364,10 +416,7 @@ async function resourceFile(
     [".pem", ".key", ".p12", ".pfx"].includes(extname(target).toLowerCase())
   )
     throw new Error("不允许预览敏感凭据文件");
-  return (await readTarget(target, target, true)) as Extract<
-    Result,
-    { type: "file" }
-  >;
+  return { target, path: target, external: true };
 }
 async function changed(
   root: string,
@@ -386,126 +435,178 @@ async function changed(
   };
 }
 
-export const activate: PluginModule["activate"] = async () => ({
-  ui: [
-    {
-      id: "modera.file-manager.panel",
-      slot: "panel",
-      accepts: "file",
-      frontend: "manager",
-      launcher: {
-        title: "File Manager",
-        icon: "file",
-        locales: { "zh-CN": { title: "文件管理器" } },
-      },
-      requiredPermissions: [
-        "workspace.read",
-        "workspace.write",
-        "process.spawn",
-      ],
-      actions: [
-        "list",
-        "search",
-        "read",
-        "save",
-        "create",
-        "rename",
-        "delete",
-        "open",
-      ],
-      async act(action, context, request) {
-        const root = await rootOf(context);
-        const input = parse(action.value);
-        const opened = await resourceFile(root, request.resource);
-        if (opened?.external && !["read", "open"].includes(action.id))
-          throw new Error("项目外文件仅支持只读预览");
-        let result: Result;
-        if (action.id === "open") {
-          const target = opened?.external
-            ? opened.path
-            : (await existing(root, input.path)).target;
-          await launchFile(target, input.opener);
-          return;
-        } else if (action.id === "list") {
-          const path = cleanRelative(input.path);
-          result = { type: "listing", path, entries: await list(root, path) };
-        } else if (action.id === "search")
-          result = await search(root, input.query);
-        else if (action.id === "read") result = await read(root, input.path);
-        else if (action.id === "save") {
-          const { rel, target } = await existing(root, input.path);
-          if (/\.(png|jpe?g|webp|gif|bmp)$/i.test(rel)) throw new Error("图片仅支持预览");
-          const content = text(input.content, "content", true);
-          if (Buffer.byteLength(content) > MAX_TEXT_BYTES)
-            throw new Error("文件超过 2 MiB");
-          const info = await stat(target);
-          if (`${info.mtimeMs}:${info.size}` !== text(input.version, "version"))
-            throw new Error("文件已被其他程序修改，请重新打开后再保存");
-          const temporary = join(
-            dirname(target),
-            `.${basename(target)}.${randomUUID()}.tmp`,
-          );
-          try {
-            await writeFile(temporary, content, { mode: info.mode });
-            await rename(temporary, target);
-          } catch (error) {
-            await unlink(temporary).catch(() => {});
-            throw error;
-          }
-          const next = await stat(target);
-          result = await changed(root, rel, `${next.mtimeMs}:${next.size}`);
-        } else if (action.id === "create") {
-          const { rel, target } = await destination(root, input.path);
-          if (input.kind === "directory") await mkdir(target);
-          else await writeFile(target, "", { flag: "wx" });
-          result = await changed(root, rel);
-        } else if (action.id === "rename") {
-          const source = await existing(root, input.path);
-          const target = await destination(root, input.target);
-          await rename(source.target, target.target);
-          result = await changed(root, target.rel, undefined, source.rel);
-        } else if (action.id === "delete") {
-          const source = await existing(root, input.path);
-          const info = await lstat(source.target);
-          await rm(source.target, {
-            recursive: info.isDirectory(),
-            force: false,
-          });
-          const parent = dirname(source.rel)
-            .replace(/\\/g, "/")
-            .replace(/^\.$/, "");
-          result = {
-            type: "changed",
-            parent,
-            entries: await list(root, parent),
-            removed: source.rel,
-          };
-        } else throw new Error("未知文件操作");
-        outputs.set(context.sessionId, result);
-      },
-      async render(request, context) {
-        const root = await rootOf(context);
-        const result = outputs.get(context.sessionId);
-        outputs.delete(context.sessionId);
-        const opened = await resourceFile(root, request.resource);
-        return {
-          title: request.locale.startsWith("zh")
-            ? "文件管理器"
-            : "File Manager",
-          data: {
-            rootName: basename(root),
+export const activate: PluginModule["activate"] = async () => {
+  // The request survives act/render; runtime enrichment copies their contexts.
+  // Weak keys isolate concurrent panel requests and do not retain abandoned results.
+  const outputs = new WeakMap<PluginUiRequest, ActionOutput>();
+  return {
+    ui: [
+      {
+        id: "modera.file-manager.panel",
+        slot: "panel",
+        accepts: "file",
+        frontend: "manager",
+        launcher: {
+          title: "File Manager",
+          icon: "file",
+          locales: { "zh-CN": { title: "文件管理器" } },
+        },
+        requiredPermissions: [
+          "workspace.read",
+          "workspace.write",
+          "process.spawn",
+        ],
+        actions: [
+          "list",
+          "search",
+          "read",
+          "save",
+          "create",
+          "rename",
+          "delete",
+          "open",
+        ],
+        readOnlyActions: ["list", "search", "read"],
+        async act(action, context, request) {
+          const root = await rootOf(context);
+          const input = parse(action.value);
+          const opened = await resourceTarget(root, request.resource);
+          if (opened?.external && !["read", "open"].includes(action.id))
+            throw new Error("项目外文件仅支持只读预览");
+          let result: Result;
+          if (action.id === "open") {
+            const target = opened?.external
+              ? opened.path
+              : (await existing(root, input.path)).target;
+            await launchFile(target, input.opener);
+            return;
+          } else if (action.id === "list") {
+            const path = cleanRelative(input.path);
+            result = { type: "listing", path, entries: await list(root, path) };
+          } else if (action.id === "search")
+            result = await search(root, input.query);
+          else if (action.id === "read") result = await read(root, input.path);
+          else if (action.id === "save") {
+            const { rel, target } = await existing(root, input.path);
+            if (/\.(png|jpe?g|webp|gif|bmp)$/i.test(rel))
+              throw new Error("图片仅支持预览");
+            const content = text(input.content, "content", true);
+            if (Buffer.byteLength(content) > MAX_TEXT_BYTES)
+              throw new Error("文件超过 2 MiB");
+            if (isRemotePath(target)) {
+              const expectedVersion = JSON.parse(
+                text(input.version, "version"),
+              );
+              if (
+                expectedVersion?.exists !== true ||
+                typeof expectedVersion.sha256 !== "string"
+              )
+                throw new Error("请重新打开文件以获取远程内容版本");
+              const saved = (await remoteTransport().file("writeVersion", [
+                target,
+                {
+                  content,
+                  expectedVersion,
+                  signal: context.signal,
+                  workspaceRoot: root,
+                },
+              ])) as { version: unknown };
+              result = await changed(root, rel, JSON.stringify(saved.version));
+            } else {
+              const info = await stat(target);
+              if (
+                `${info.mtimeMs}:${info.size}` !==
+                text(input.version, "version")
+              )
+                throw new Error("文件已被其他程序修改，请重新打开后再保存");
+              const temporary = join(
+                dirname(target),
+                `.${basename(target)}.${randomUUID()}.tmp`,
+              );
+              try {
+                await writeFile(temporary, content, { mode: info.mode });
+                await rename(temporary, target);
+              } catch (error) {
+                await unlink(temporary).catch(() => {});
+                throw error;
+              }
+              const next = await stat(target);
+              result = await changed(root, rel, `${next.mtimeMs}:${next.size}`);
+            }
+          } else if (action.id === "create") {
+            const { rel, target } = await destination(root, input.path);
+            if (input.kind === "directory") await mkdir(target);
+            else await writeFile(target, "", { flag: "wx" });
+            result = await changed(root, rel);
+          } else if (action.id === "rename") {
+            const source = await existing(root, input.path);
+            const target = await destination(root, input.target);
+            if (isRemotePath(source.target))
+              await remoteTransport().file("renameExclusive", [
+                source.target,
+                target.target,
+              ]);
+            else await rename(source.target, target.target);
+            result = await changed(root, target.rel, undefined, source.rel);
+          } else if (action.id === "delete") {
+            const source = await existing(root, input.path);
+            const info = await lstat(source.target);
+            await rm(source.target, {
+              recursive: info.isDirectory(),
+              force: false,
+            });
+            const parent = dirname(source.rel)
+              .replace(/\\/g, "/")
+              .replace(/^\.$/, "");
+            result = {
+              type: "changed",
+              parent,
+              entries: await list(root, parent),
+              removed: source.rel,
+            };
+          } else throw new Error("未知文件操作");
+          // act is immediately followed by render. Return its result without
+          // rereading the project root or the resource file on every tree click.
+          if (request) outputs.set(request, { root, result });
+        },
+        async render(request, context) {
+          const output = outputs.get(request);
+          outputs.delete(request);
+          const root = output?.root ?? (await rootOf(context));
+          const result = output?.result;
+          const opened = output
+            ? undefined
+            : await resourceFile(root, request.resource);
+          const rootEntries = result
+            ? result.type === "listing" && !result.path
+              ? result.entries
+              : result.type === "changed" && !result.parent
+                ? result.entries
+                : undefined
+            : opened?.external
+              ? []
+              : await list(root, "");
+          return {
+            title: request.locale.startsWith("zh")
+              ? "文件管理器"
+              : "File Manager",
+            data: {
+              rootName: basename(root),
               canOpenExternally: !isRemotePath(opened?.external ? opened.path : root),
-            rootEntries: opened?.external ? [] : await list(root, ""),
-            result,
-            ...(opened ? { resourceFile: opened } : {}),
-            openers: (isRemotePath(root) ? [] : await availableOpeners()).map(({ id, label }) => ({
-              id,
-              label,
-            })),
-          },
-          children: [],
-        };
+              ...(rootEntries ? { rootEntries } : {}),
+              result,
+              ...(opened ? { resourceFile: opened } : {}),
+              openers: (isRemotePath(root) ? [] : await availableOpeners()).map(
+                ({ id, label }) => ({
+                  id,
+                  label,
+                }),
+              ),
+            },
+            children: [],
+          };
+        },
       },
-    },
-  ],
-});
+    ],
+  };
+};
