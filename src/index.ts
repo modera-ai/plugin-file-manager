@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { operationErrorDetail } from "@modera/contracts";
 import { spawn } from "@modera/plugin-sdk/workspace-process";
 import { remoteTransport } from "@modera/plugin-sdk/workspace-transport";
 import {
@@ -470,7 +471,10 @@ export const activate: PluginModule["activate"] = async () => {
         async act(action, context, request) {
           const root = await rootOf(context);
           const input = parse(action.value);
-          const opened = await resourceTarget(root, request.resource);
+          const opened = await resourceTarget(root, request.resource).catch((error) => {
+            if (error?.code === "ENOENT" || error?.code === "ENOTDIR") return undefined;
+            throw error;
+          });
           if (opened?.external && !["read", "open"].includes(action.id))
             throw new Error("项目外文件仅支持只读预览");
           let result: Result;
@@ -572,20 +576,29 @@ export const activate: PluginModule["activate"] = async () => {
         async render(request, context) {
           const output = outputs.get(request);
           outputs.delete(request);
-          const root = output?.root ?? (await rootOf(context));
+          let root = output?.root ?? context.workspacePath ?? "";
           const result = output?.result;
-          const opened = output
-            ? undefined
-            : await resourceFile(root, request.resource);
-          const rootEntries = result
-            ? result.type === "listing" && !result.path
+          let opened: Awaited<ReturnType<typeof resourceFile>>;
+          let rootEntries: Entry[] | undefined;
+          let rootError: string | undefined;
+          let resourceError: string | undefined;
+          try {
+            root = output?.root ?? (await rootOf(context));
+            rootEntries = result ? result.type === "listing" && !result.path
               ? result.entries
               : result.type === "changed" && !result.parent
                 ? result.entries
                 : undefined
-            : opened?.external
-              ? []
               : await list(root, "");
+          } catch (error) {
+            rootError = operationErrorDetail(error);
+            rootEntries = [];
+          }
+          if (!output && !rootError) {
+            try { opened = await resourceFile(root, request.resource); }
+            catch (error) { resourceError = operationErrorDetail(error); }
+            if (opened?.external) rootEntries = [];
+          }
           return {
             title: request.locale.startsWith("zh")
               ? "文件管理器"
@@ -594,9 +607,11 @@ export const activate: PluginModule["activate"] = async () => {
               rootName: basename(root),
               canOpenExternally: !isRemotePath(opened?.external ? opened.path : root),
               ...(rootEntries ? { rootEntries } : {}),
+              ...(rootError ? { rootError } : {}),
+              ...(resourceError ? { resourceError } : {}),
               result,
               ...(opened ? { resourceFile: opened } : {}),
-              openers: (isRemotePath(root) ? [] : await availableOpeners()).map(
+              openers: (isRemotePath(root) || rootError ? [] : await availableOpeners()).map(
                 ({ id, label }) => ({
                   id,
                   label,

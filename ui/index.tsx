@@ -1,4 +1,5 @@
 import "@modera/ui/styles.css";
+import { operationErrorDetail } from "@modera/contracts";
 import { FileActionsMenu } from "./FileActionsMenu";
 import { Menu, Tooltip, UiProvider, type MenuItem } from "@modera/ui";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -90,6 +91,8 @@ type Result =
     };
 type Data = {
   rootName: string;
+  rootError?: string;
+  resourceError?: string;
   canOpenExternally?: boolean;
   rootEntries?: Entry[];
   result?: Result;
@@ -346,7 +349,7 @@ function App() {
         }
       }
     } catch (e) {
-      setMessage(String(e));
+      setMessage(operationErrorDetail(e));
     } finally {
       setBusy(false);
     }
@@ -615,6 +618,7 @@ function App() {
           )}
         </form>
         <div className="tree" onContextMenu={(event) => showMenu(event)}>
+          {(data?.rootError || snapshotError) && <div className="tree-error" role="alert"><p>{data?.rootError || operationErrorDetail(snapshotError)}</p><button disabled={busy} onClick={() => void run("list", { path: "" })}>{zh ? "重试" : "Retry"}</button></div>}
           {searchResult ? (
             <div className="search-results">
               <small>
@@ -852,9 +856,10 @@ function App() {
             <Editor file={file} value={content} onChange={setContent} />
           )}
         </div>
-        {(message || snapshotError) && (
+        {data?.resourceError && <div className="file-open-error" role="alert">{data.resourceError}</div>}
+        {message && (
           <div className="notice" role="status">
-            {message || snapshotError}
+            {message}
           </div>
         )}
       </section>

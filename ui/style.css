@@ -585,6 +585,16 @@ nav {
   box-shadow: 0 4px 18px #0003;
   font-size: 12px;
 }
+.tree-error, .file-open-error {
+  padding: 12px;
+  color: var(--danger, #c53b48);
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+.tree-error p { margin: 0 0 8px; }
+.tree-error button { min-height: 32px; padding: 0 8px; border: 1px solid var(--border); border-radius: 7px; background: var(--surface); color: var(--text); cursor: pointer; }
 .dialog-layer {
   position: fixed;
   inset: 0;
